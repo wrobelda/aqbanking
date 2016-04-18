@@ -12,7 +12,7 @@
          internal="1"
  >
    <SEG type="Ident" name="ident" />
-   <SEG type="Prepare" name="prepare" version="3" />
+   <SEG type="Prepare" name="prepare" version="2" />
  </JOBdef>
 
 
@@ -36,7 +36,7 @@
          nosysid="1"
  >
    <SEG type="Ident" name="ident" />
-   <SEG type="Prepare" name="prepare" version="3" />
+   <SEG type="Prepare" name="prepare" version="2" />
 
    <VALUES>
      <VALUE path="ident/customerId">9999999999</VALUE>
@@ -59,7 +59,7 @@
   >
    <MESSAGE name="open" crypt="0" sign="0" nosysid="1" >
      <SEG name="ident" type="Ident" />
-     <SEG type="Prepare" name="prepare" version="3" />
+     <SEG type="Prepare" name="prepare" version="2" />
      <SEG type="getKey" name="cryptkey" />
      <SEG type="getKey" name="signKey" />
      <!-- <SEG type="getKey" name="authKey" /> -->
@@ -143,7 +143,7 @@
   >
    <MESSAGE name="open" nosysid="1" >
      <SEG type="Ident" name="ident" />
-     <SEG type="Prepare" name="prepare" version="3" />
+     <SEG type="Prepare" name="prepare" version="2" />
      <SEG type="Sync" name="sync" />
 
      <VALUES>
@@ -166,7 +166,7 @@
  >
    <MESSAGE name="open" crypt="1" sign="1" >
      <SEG type="Ident" name="ident" />
-     <SEG type="Prepare" name="prepare" version="3" />
+     <SEG type="Prepare" name="prepare" version="2" />
    </MESSAGE>
    <MESSAGE name="close" sign="1" crypt="1" >
      <SEG type="DialogEnd" />
@@ -182,7 +182,7 @@
  >
    <MESSAGE name="open" crypt="0" sign="0" >
      <SEG type="Ident" name="ident" />
-     <SEG type="Prepare" name="prepare" version="3" />
+     <SEG type="Prepare" name="prepare" version="2" />
 
      <VALUES>
        <VALUE path="ident/customerId">9999999999</VALUE>
@@ -204,7 +204,7 @@
  >
    <MESSAGE name="open" crypt="1" sign="1" >
      <SEG type="Ident" name="ident" />
-     <SEG type="Prepare" name="prepare" version="3" />
+     <SEG type="Prepare" name="prepare" version="2" />
 
      <VALUES>
        <VALUE path="prepare/bpdversion">0</VALUE>
@@ -319,7 +319,7 @@
  >
    <MESSAGE name="open" crypt="1" sign="1" noitan="1" >
      <SEG type="Ident" name="ident" />
-     <SEG type="Prepare" name="prepare" version="3" />
+     <SEG type="Prepare" name="prepare" version="2" />
    </MESSAGE>
    <MESSAGE name="close" sign="1" crypt="1" noitan="1" >
      <SEG type="DialogEnd" />
