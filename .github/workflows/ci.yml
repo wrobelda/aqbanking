@@ -32,7 +32,7 @@ permissions:
 
 env:
   GWEN_REPO: ${{ inputs.gwen_repo || 'wrobelda/gwenhywfar' }}
-  GWEN_REF: ${{ inputs.gwen_ref || 'ci-install-artifact' }}
+  GWEN_REF: ${{ inputs.gwen_ref || 'ci-pc-requires-private' }}
 
 jobs:
   # Resolves the Gwenhywfar branch or tag to one commit, so that every
@@ -301,13 +301,14 @@ jobs:
           } >>"$GITHUB_ENV"
           # MSVC import libraries, headers and pkg-config files of the
           # MinGW-built libraries, in a prefix of their own.
-          # libgwenhywfar.la lists GnuTLS, libgcrypt and libgpg-error, and
-          # libtool links them into every program, so we must prepare
-          # them as well.
+          # libtool links the libraries in libgwenhywfar.la into every
+          # program, so we must prepare Gwenhywfar's private requirements
+          # as well.
           pacman -S --noconfirm --needed "${MINGW_PACKAGE_PREFIX}-tools"
           _gwenhywfar/.github/ci/msvc-deps.sh "$PWD/_deps" \
             gmp xmlsec1 libxml-2.0 libxslt zlib \
-            gnutls libgcrypt gpg-error
+            $(PKG_CONFIG_PATH="$GWEN_PREFIX/lib/pkgconfig" \
+              pkg-config --print-requires-private gwenhywfar | cut -d' ' -f1)
           echo "MSVC_PKG_CONFIG_PATH=$PWD/_deps/lib/pkgconfig" >>"$GITHUB_ENV"
       # The MSYS2 login profile resets PKG_CONFIG_PATH in every step, so
       # we must pass it to ./configure.
