@@ -31,8 +31,8 @@ permissions:
   contents: read
 
 env:
-  GWEN_REPO: ${{ inputs.gwen_repo || 'aqbanking/gwenhywfar' }}
-  GWEN_REF: ${{ inputs.gwen_ref || 'master' }}
+  GWEN_REPO: ${{ inputs.gwen_repo || 'wrobelda/gwenhywfar' }}
+  GWEN_REF: ${{ inputs.gwen_ref || 'ci-install-artifact' }}
 
 jobs:
   # Resolves the Gwenhywfar branch or tag to one commit, so that every
