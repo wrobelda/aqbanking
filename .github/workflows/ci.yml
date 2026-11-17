@@ -32,7 +32,7 @@ permissions:
 
 env:
   GWEN_REPO: ${{ inputs.gwen_repo || 'wrobelda/gwenhywfar' }}
-  GWEN_REF: ${{ inputs.gwen_ref || 'ci-pc-requires-private' }}
+  GWEN_REF: ${{ inputs.gwen_ref || 'ci-variants' }}
 
 jobs:
   # Resolves the Gwenhywfar branch or tag to one commit, so that every
