@@ -15,9 +15,6 @@
 #include "xml.h"
 #include "aqebics/client/provider_l.h"
 
-#include <xmlsec/transforms.h>
-#include <xmlsec/errors.h>
-
 #include <libxml/xpathInternals.h>
 
 #include <gwenhywfar/debug.h>

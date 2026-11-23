@@ -46,10 +46,6 @@ int EB_Xml_Uncompress64Doc(const char *ptr, int size,
 int EB_Xml_InsertChild(xmlNodePtr node, xmlNodePtr n);
 
 
-int EB_Xml_GetXpathData(xmlNodePtr signedInfoNode,
-                        const xmlChar *uri,
-                        GWEN_BUFFER *rbuf);
-
 int EB_Xml_DocFromBuffer(const char *ptr, int size, xmlDocPtr *pdoc);
 
 

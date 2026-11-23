@@ -182,9 +182,7 @@
       </ifVarMatches>
 
       <ifVarHasValue name="option_backends" value="aqebics" >
-        <dep id="xmlsec" name="xmlsec1" minversion="1.0.0" required="TRUE" />
         <dep id="xml" name="libxml-2.0" required="TRUE" />
-        <dep id="xslt" name="libxslt" required="TRUE" />
         <dep id="zlib" name="zlib" required="TRUE" />
       </ifVarHasValue>
 

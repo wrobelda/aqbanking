@@ -7,8 +7,6 @@
     <includes type="c" >
       $(gmp_cflags)
       $(xml_cflags)
-      $(xslt_cflags)
-      $(xmlsec_cflags)
       $(gwenhywfar_cflags)
       -I$(builddir)
       -I$(srcdir)

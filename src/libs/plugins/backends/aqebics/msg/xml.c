@@ -18,8 +18,9 @@
 #include <gwenhywfar/base64.h>
 #include <gwenhywfar/text.h>
 
-#include <xmlsec/transforms.h>
-#include <xmlsec/errors.h>
+#include <libxml/c14n.h>
+#include <libxml/xpointer.h>
+#include <libxml/xpathInternals.h>
 
 
 
@@ -427,92 +428,6 @@ int EB_Xml_InsertChild(xmlNodePtr node, xmlNodePtr n)
 
 
 
-int EB_Xml_GetXpathData(xmlNodePtr signedInfoNode,
-                        const xmlChar *uri,
-                        GWEN_BUFFER *rbuf)
-{
-  xmlSecTransformPtr tptr;
-  int rv;
-  xmlSecTransformDataType firstType;
-  xmlSecByte *result;
-  xmlSecSize rlen;
-  xmlSecTransformCtxPtr ctx;
-
-  ctx=xmlSecTransformCtxCreate();
-  assert(ctx);
-
-  /* xpath (see xmlsec/transforms.h) */
-  rv=xmlSecTransformCtxSetUri(ctx, uri, signedInfoNode);
-  if (rv) {
-    xmlSecError(XMLSEC_ERRORS_HERE,
-                NULL,
-                "xmlSecTransformCtxAppend",
-                XMLSEC_ERRORS_R_XMLSEC_FAILED,
-                XMLSEC_ERRORS_NO_MESSAGE);
-    xmlSecTransformCtxDestroy(ctx);
-    return (-1);
-  }
-
-  /* canonicalisation (see xmlsec/transforms.h) */
-  tptr=xmlSecTransformCtxCreateAndAppend(ctx,
-                                         xmlSecTransformInclC14NId);
-  if (tptr == NULL) {
-    xmlSecError(XMLSEC_ERRORS_HERE,
-                NULL,
-                "xmlSecTransformCtxAppend",
-                XMLSEC_ERRORS_R_XMLSEC_FAILED,
-                XMLSEC_ERRORS_NO_MESSAGE);
-    xmlSecTransformCtxDestroy(ctx);
-    return (-1);
-  }
-
-  firstType=xmlSecTransformGetDataType(ctx->first,
-                                       xmlSecTransformModePush,
-                                       ctx);
-  if ((firstType & xmlSecTransformDataTypeXml) != 0) {
-    xmlSecNodeSetPtr nodeset = NULL;
-
-    nodeset=xmlSecNodeSetGetChildren(signedInfoNode->doc,
-                                     signedInfoNode, 1, 0);
-
-    /* calculate the signature */
-    rv=xmlSecTransformCtxXmlExecute(ctx, nodeset);
-    if (rv<0) {
-      xmlSecError(XMLSEC_ERRORS_HERE,
-                  NULL,
-                  "xmlSecTransformCtxXmlExecute",
-                  XMLSEC_ERRORS_R_XMLSEC_FAILED,
-                  XMLSEC_ERRORS_NO_MESSAGE);
-      xmlSecNodeSetDestroy(nodeset);
-      xmlSecTransformCtxDestroy(ctx);
-      return (-1);
-    }
-    xmlSecNodeSetDestroy(nodeset);
-  }
-  else {
-    xmlSecError(XMLSEC_ERRORS_HERE,
-                NULL,
-                "the binary c14n transforms are not supported yet",
-                XMLSEC_ERRORS_R_NOT_IMPLEMENTED,
-                XMLSEC_ERRORS_NO_MESSAGE);
-    xmlSecTransformCtxDestroy(ctx);
-    return (-1);
-  }
-
-  /* ctx->result now contains the resulting data */
-  result=xmlSecBufferGetData(ctx->result);
-  rlen=xmlSecBufferGetSize(ctx->result);
-  if (result && rlen) {
-    DBG_DEBUG(AQEBICS_LOGDOMAIN, "Have data: %d bytes", rlen);
-    GWEN_Buffer_AppendBytes(rbuf, (char *)result, rlen);
-  }
-  xmlSecTransformCtxDestroy(ctx);
-
-  return (0);
-}
-
-
-
 int EB_Xml_DocFromBuffer(const char *ptr, int size, xmlDocPtr *pdoc)
 {
   xmlDocPtr doc;
@@ -531,102 +446,89 @@ int EB_Xml_DocFromBuffer(const char *ptr, int size, xmlDocPtr *pdoc)
 
 
 
+typedef struct {
+  xmlNodePtr top;
+  xmlNodeSetPtr selected;
+} EB_XML_C14N_NODES;
+
+
+
+/* visible: nodes inside "top" which are in "selected" or below one of its nodes */
+static int EB_Xml__IsVisible(void *userData, xmlNodePtr node, xmlNodePtr parent)
+{
+  const EB_XML_C14N_NODES *nodes=(const EB_XML_C14N_NODES *) userData;
+  xmlNodePtr n;
+
+  /* a namespace node has no parent pointer */
+  if (node->type==XML_NAMESPACE_DECL)
+    node=parent;
+
+  for (n=node; n && n!=nodes->top; n=n->parent)
+    ;
+  if (n==NULL)
+    return 0;
+
+  for (; node; node=node->parent) {
+    if (xmlXPathNodeSetContains(nodes->selected, node))
+      return 1;
+  }
+  return 0;
+}
+
+
+
 int EB_Xml_BuildHashData(xmlNodePtr signedInfoNode,
                          const xmlChar *uri,
                          GWEN_BUFFER *rbuf)
 {
-  xmlSecTransformPtr tptr;
+  EB_XML_C14N_NODES nodes;
+  xmlXPathContextPtr ctx;
+  xmlXPathObjectPtr xpathObj;
+  xmlOutputBufferPtr obuf;
   int rv;
-  xmlSecTransformDataType firstType;
-  xmlSecByte *result;
-  xmlSecSize rlen;
-  xmlSecTransformCtxPtr ctx;
 
-  ctx=xmlSecTransformCtxCreate();
-  assert(ctx);
-
-  /* xpath (see xmlsec/transforms.h) */
-  rv=xmlSecTransformCtxSetUri(ctx, uri, signedInfoNode);
-  if (rv) {
-    xmlSecError(XMLSEC_ERRORS_HERE,
-                NULL,
-                "xmlSecTransformCtxAppend",
-                XMLSEC_ERRORS_R_XMLSEC_FAILED,
-                XMLSEC_ERRORS_NO_MESSAGE);
-    xmlSecTransformCtxDestroy(ctx);
+  if (uri==NULL || xmlStrncmp(uri, BAD_CAST "#xpointer(", 10)!=0) {
+    DBG_ERROR(AQEBICS_LOGDOMAIN, "Unsupported URI");
     return (-1);
   }
 
-  /* canonicalisation (see xmlsec/transforms.h) */
-  tptr=xmlSecTransformCtxCreateAndAppend(ctx,
-                                         xmlSecTransformInclC14NId);
-  if (tptr == NULL) {
-    xmlSecError(XMLSEC_ERRORS_HERE,
-                NULL,
-                "xmlSecTransformCtxAppend",
-                XMLSEC_ERRORS_R_XMLSEC_FAILED,
-                XMLSEC_ERRORS_NO_MESSAGE);
-    xmlSecTransformCtxDestroy(ctx);
+  ctx=xmlXPathNewContext(signedInfoNode->doc);
+  if (ctx==NULL) {
+    DBG_ERROR(AQEBICS_LOGDOMAIN, "xmlXPathNewContext failed");
+    return (-1);
+  }
+  xpathObj=xmlXPtrEval(uri+1, ctx);
+  xmlXPathFreeContext(ctx);
+  if (xpathObj==NULL || xpathObj->type!=XPATH_NODESET) {
+    DBG_ERROR(AQEBICS_LOGDOMAIN, "xmlXPtrEval failed (%s)", (const char *) uri);
+    xmlXPathFreeObject(xpathObj);
     return (-1);
   }
 
-#if 0
-  /* hashing (see xmlsec/app.h)  */
-  tptr=xmlSecTransformCtxCreateAndAppend(ctx,
-                                         xmlSecTransformHmacSha1Id);
-  if (tptr == NULL) {
-    xmlSecError(XMLSEC_ERRORS_HERE,
-                NULL,
-                "xmlSecTransformCtxAppend",
-                XMLSEC_ERRORS_R_XMLSEC_FAILED,
-                XMLSEC_ERRORS_NO_MESSAGE);
-    xmlSecTransformCtxDestroy(ctx);
-    return (-1);
-  }
-#endif
-
-  firstType=xmlSecTransformGetDataType(ctx->first,
-                                       xmlSecTransformModePush,
-                                       ctx);
-  if ((firstType & xmlSecTransformDataTypeXml) != 0) {
-    xmlSecNodeSetPtr nodeset = NULL;
-
-    nodeset=xmlSecNodeSetGetChildren(signedInfoNode->doc,
-                                     signedInfoNode, 1, 0);
-
-    /* calculate the signature */
-    rv=xmlSecTransformCtxXmlExecute(ctx, nodeset);
-    if (rv<0) {
-      xmlSecError(XMLSEC_ERRORS_HERE,
-                  NULL,
-                  "xmlSecTransformCtxXmlExecute",
-                  XMLSEC_ERRORS_R_XMLSEC_FAILED,
-                  XMLSEC_ERRORS_NO_MESSAGE);
-      xmlSecNodeSetDestroy(nodeset);
-      xmlSecTransformCtxDestroy(ctx);
-      return (-1);
-    }
-    xmlSecNodeSetDestroy(nodeset);
-  }
-  else {
-    xmlSecError(XMLSEC_ERRORS_HERE,
-                NULL,
-                "the binary c14n transforms are not supported yet",
-                XMLSEC_ERRORS_R_NOT_IMPLEMENTED,
-                XMLSEC_ERRORS_NO_MESSAGE);
-    xmlSecTransformCtxDestroy(ctx);
+  obuf=xmlAllocOutputBuffer(NULL);
+  if (obuf==NULL) {
+    DBG_ERROR(AQEBICS_LOGDOMAIN, "xmlAllocOutputBuffer failed");
+    xmlXPathFreeObject(xpathObj);
     return (-1);
   }
 
-  /* ctx->result now contains the resulting data */
-  result=xmlSecBufferGetData(ctx->result);
-  rlen=xmlSecBufferGetSize(ctx->result);
-  if (result && rlen) {
-    GWEN_Buffer_AppendBytes(rbuf, (char *)result, rlen);
+  /* inclusive C14N 1.0 without comments */
+  nodes.top=signedInfoNode;
+  nodes.selected=xpathObj->nodesetval;
+  rv=xmlC14NExecute(signedInfoNode->doc, EB_Xml__IsVisible, &nodes,
+                    XML_C14N_1_0, NULL, 0, obuf);
+  if (rv<0) {
+    DBG_ERROR(AQEBICS_LOGDOMAIN, "xmlC14NExecute failed");
   }
-  xmlSecTransformCtxDestroy(ctx);
+  else
+    GWEN_Buffer_AppendBytes(rbuf,
+                            (const char *) xmlOutputBufferGetContent(obuf),
+                            xmlOutputBufferGetSize(obuf));
 
-  return (0);
+  xmlOutputBufferClose(obuf);
+  xmlXPathFreeObject(xpathObj);
+
+  return (rv<0)?(-1):0;
 }
 
 

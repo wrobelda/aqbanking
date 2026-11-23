@@ -64,8 +64,6 @@
     <libraries>
       $(gmp_libs)
       $(gwenhywfar_libs)
-      $(xmlsec_libs)
-      $(xslt_libs)
       $(xml_libs)
       $(zlib_libs)
     </libraries>

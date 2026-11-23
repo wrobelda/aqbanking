@@ -1177,17 +1177,15 @@ AC_MSG_RESULT($aqebics_datadir)
 
 ###-------------------------------------------------------------------------
 #
-# Check for xmlsec
+# Check for libxml2
 #
 if test "$with_aqebics" = "yes"; then
   AC_MSG_CHECKING(for build requirements needed by EBICS backend)
   AC_MSG_RESULT()
-  PKG_CHECK_MODULES(XMLSEC,  [xmlsec1 >= 1.0.0])
   PKG_CHECK_MODULES(LIBXML,  [libxml-2.0])
-  PKG_CHECK_MODULES(LIBXSLT, [libxslt])
   PKG_CHECK_MODULES(ZLIB,    [zlib])
-  AQEBICS_CFLAGS="$XMLSEC_CFLAGS $LIBXML_CFLAGS $LIBXSLT_CFLAGS $ZLIB_CFLAGS"
-  AQEBICS_LIBS="$XMLSEC_LIBS $LIBXML_LIBS $LIBXSLT_LIBS $ZLIB_LIBS"
+  AQEBICS_CFLAGS="$LIBXML_CFLAGS $ZLIB_CFLAGS"
+  AQEBICS_LIBS="$LIBXML_LIBS $ZLIB_LIBS"
   AC_SUBST(AQEBICS_CFLAGS)
   AC_SUBST(AQEBICS_LIBS)
 fi
